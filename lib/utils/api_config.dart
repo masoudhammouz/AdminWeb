@@ -1,6 +1,13 @@
 class ApiConfig {
-  // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:4000/api';
+  /// Backend API base URL. Override at build/run time:
+  ///   flutter run -d chrome --dart-define=API_BASE_URL=http://YOUR_IP:4000/api
+  ///   flutter build web --dart-define=API_BASE_URL=https://your-api.com/api
+  /// If not set, defaults to http://localhost:4000/api (local dev).
+  static String get baseUrl =>
+      const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'http://localhost:4000/api',
+      );
   
   // Auth endpoints
   static String get loginUrl => '$baseUrl/auth/login';
