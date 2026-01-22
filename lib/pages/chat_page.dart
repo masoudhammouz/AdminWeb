@@ -18,6 +18,12 @@ class _ChatPageState extends State<ChatPage> {
   final _messageController = TextEditingController();
   bool _isLoading = true;
 
+  String _initialFor(String? name) {
+    final trimmed = (name ?? '').trim();
+    if (trimmed.isEmpty) return '?';
+    return String.fromCharCode(trimmed.runes.first).toUpperCase();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -195,13 +201,18 @@ class _ChatPageState extends State<ChatPage> {
                                                 leading: CircleAvatar(
                                                   radius: 24,
                                                   backgroundColor: AppColors.primaryGreen.withOpacity(0.15),
-                                                  child: Text(
-                                                    (user?['name'] as String? ?? '?')[0].toUpperCase(),
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: AppColors.primaryGreen,
-                                                    ),
-                                                  ),
+                                                  backgroundImage: (user?['profilePicture'] as String?)?.isNotEmpty == true
+                                                      ? NetworkImage(user?['profilePicture'] as String)
+                                                      : null,
+                                                  child: (user?['profilePicture'] as String?)?.isNotEmpty == true
+                                                      ? null
+                                                      : Text(
+                                                          _initialFor(user?['name'] as String?),
+                                                          style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppColors.primaryGreen,
+                                                          ),
+                                                        ),
                                                 ),
                                                 title: Text(
                                                   user?['name'] as String? ?? 'Unknown',
@@ -285,7 +296,13 @@ class _ChatPageState extends State<ChatPage> {
                                             itemBuilder: (context, index) {
                                               final msg = _messages[index];
                                               final isAdmin = msg['senderType'] == 'admin';
-                                              final sender = msg['senderId'] as Map<String, dynamic>?;
+                                              Map<String, dynamic>? sender;
+                                              final rawSender = msg['senderId'];
+                                              if (rawSender is Map<String, dynamic>) {
+                                                sender = rawSender;
+                                              } else if (rawSender is Map) {
+                                                sender = Map<String, dynamic>.from(rawSender);
+                                              }
                                               final content = msg['content'] as String? ?? '';
                                               return Align(
                                                 alignment: isAdmin ? Alignment.centerRight : Alignment.centerLeft,
