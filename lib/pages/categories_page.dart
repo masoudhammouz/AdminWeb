@@ -4,6 +4,7 @@ import '../widgets/sidebar.dart';
 import '../widgets/app_bar.dart' as app_bar;
 import '../services/categories_service.dart';
 import 'category_form_page.dart';
+import 'category_detail_page.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
@@ -104,11 +105,18 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/categories'),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/categories'),
           Expanded(
             child: Column(
               children: [
@@ -122,9 +130,19 @@ class _CategoriesPageState extends State<CategoriesPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Categories',
-                              style: Theme.of(context).textTheme.displayMedium,
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_back),
+                                  onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                                  tooltip: 'Back to Dashboard',
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Categories',
+                                  style: Theme.of(context).textTheme.displayMedium,
+                                ),
+                              ],
                             ),
                             ElevatedButton.icon(
                               onPressed: () async {
@@ -215,7 +233,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                         onTap: () async {
                                           final result = await Navigator.of(context).push(
                                             MaterialPageRoute(
-                                              builder: (_) => CategoryFormPage(
+                                              builder: (_) => CategoryDetailPage(
                                                 category: category as Map<String, dynamic>,
                                               ),
                                             ),
@@ -247,16 +265,33 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                               Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.all(10),
+                                                    width: 48,
+                                                    height: 48,
+                                                    padding: const EdgeInsets.all(4),
                                                     decoration: BoxDecoration(
                                                       color: AppColors.primaryGreen.withOpacity(0.1),
                                                       borderRadius: BorderRadius.circular(12),
                                                     ),
-                                                    child: Icon(
-                                                      Icons.category,
-                                                      size: 28,
-                                                      color: AppColors.primaryGreen,
-                                                    ),
+                                                    child: (category['icon'] as String? ?? '').isNotEmpty
+                                                        ? ClipRRect(
+                                                            borderRadius: BorderRadius.circular(8),
+                                                            child: Image.network(
+                                                              category['icon'] as String,
+                                                              fit: BoxFit.contain,
+                                                              errorBuilder: (context, error, stackTrace) {
+                                                                return Icon(
+                                                                  Icons.category,
+                                                                  size: 28,
+                                                                  color: AppColors.primaryGreen,
+                                                                );
+                                                              },
+                                                            ),
+                                                          )
+                                                        : Icon(
+                                                            Icons.category,
+                                                            size: 28,
+                                                            color: AppColors.primaryGreen,
+                                                          ),
                                                   ),
                                                   const SizedBox(width: 10),
                                                   Expanded(
@@ -377,6 +412,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ),
         ],
       ),
+    ),
     );
   }
 

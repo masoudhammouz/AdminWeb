@@ -18,6 +18,7 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
   final _stageNumberController = TextEditingController();
   final _orderController = TextEditingController();
   final _questionsCountController = TextEditingController();
+  final _videoUrlController = TextEditingController();
   
   String _selectedLevel = 'BEGINNER';
   String? _selectedSubLevel;
@@ -33,6 +34,7 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
       _stageNumberController.text = (widget.stage!['stageNumber'] as int? ?? 1).toString();
       _orderController.text = (widget.stage!['order'] as int? ?? 1).toString();
       _questionsCountController.text = (widget.stage!['questionsCount'] as int? ?? 5).toString();
+      _videoUrlController.text = widget.stage!['videoUrl'] as String? ?? '';
       _isActive = widget.stage!['isActive'] as bool? ?? true;
     } else {
       _questionsCountController.text = '5';
@@ -44,6 +46,7 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
     _stageNumberController.dispose();
     _orderController.dispose();
     _questionsCountController.dispose();
+    _videoUrlController.dispose();
     super.dispose();
   }
 
@@ -64,6 +67,11 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
     }
     if (_orderController.text.isNotEmpty) {
       data['order'] = int.tryParse(_orderController.text);
+    }
+    if (_videoUrlController.text.isNotEmpty) {
+      data['videoUrl'] = _videoUrlController.text.trim();
+    } else {
+      data['videoUrl'] = null;
     }
 
     final result = widget.stage != null
@@ -99,13 +107,30 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.beige,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          color: AppColors.beige,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: app_bar.AppBar()),
+            ],
+          ),
+        ),
+      ),
       body: Row(
         children: [
           Sidebar(currentRoute: '/journey'),
           Expanded(
             child: Column(
               children: [
-                const app_bar.AppBar(),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -211,6 +236,14 @@ class _JourneyStageFormPageState extends State<JourneyStageFormPage> {
                                       }
                                       return null;
                                     },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _videoUrlController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Video URL (Optional)',
+                                      hintText: 'https://example.com/video.mp4',
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   SwitchListTile(

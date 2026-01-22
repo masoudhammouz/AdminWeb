@@ -19,8 +19,11 @@ class ApiConfig {
   static String get letterSoundsUrl => '$baseUrl/admin/letter-sounds';
   static String get journeyStagesUrl => '$baseUrl/journey-exam/admin/stages';
   static String get journeyQuestionsUrl => '$baseUrl/journey-exam/admin/questions';
+  static String get placementQuestionsUrl => '$baseUrl/placement/questions';
+  static String placementQuestionUrl(String id) => '$baseUrl/placement/questions/$id';
   static String get notificationsUrl => '$baseUrl/notifications/admin/send';
   static String get audioUploadUrl => '$baseUrl/audio/upload';
+  static String get imageUploadUrl => '$baseUrl/upload/image';
   
   // Users management endpoints (to be created)
   static String get usersUrl => '$baseUrl/admin/users';

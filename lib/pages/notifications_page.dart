@@ -174,29 +174,42 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/notifications'),
-          Expanded(
-            child: Column(
-              children: [
-                const app_bar.AppBar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 800),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Header
-                              Row(
-                                children: [
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/notifications'),
+            Expanded(
+              child: Column(
+                children: [
+                  const app_bar.AppBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Header
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_back),
+                                      onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                                      tooltip: 'Back to Dashboard',
+                                    ),
+                                    const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -698,6 +711,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ],
       ),
+    ),
     );
   }
 }

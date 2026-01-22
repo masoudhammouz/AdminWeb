@@ -141,28 +141,46 @@ class _UsersPageState extends State<UsersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/users'),
-          Expanded(
-            child: Column(
-              children: [
-                const app_bar.AppBar(),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Row(
-                          children: [
-                            Text(
-                              'Users',
-                              style: Theme.of(context).textTheme.displayMedium,
-                            ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/users'),
+            Expanded(
+              child: Column(
+                children: [
+                  const app_bar.AppBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                                    tooltip: 'Back to Dashboard',
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Users',
+                                    style: Theme.of(context).textTheme.displayMedium,
+                                  ),
+                                ],
+                              ),
                             const Spacer(),
                             if (_isLoading)
                               const SizedBox(
@@ -318,11 +336,15 @@ class _UsersPageState extends State<UsersPage> {
                             ),
                           ),
                         // Users grid
-                        Expanded(
-                          child: _isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : _users.isEmpty
-                                  ? Center(
+                        _isLoading
+                            ? const SizedBox(
+                                height: 400,
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            : _users.isEmpty
+                                ? SizedBox(
+                                    height: 400,
+                                    child: Center(
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
@@ -334,34 +356,38 @@ class _UsersPageState extends State<UsersPage> {
                                           const SizedBox(height: 16),
                                           Text(
                                             'No users found',
-                                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                                  color: AppColors.grey600,
-                                                ),
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: AppColors.grey600,
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    )
-                                  : LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        // Calculate number of columns based on screen width
-                                        final crossAxisCount = constraints.maxWidth > 1200
-                                            ? 4
-                                            : constraints.maxWidth > 900
-                                                ? 3
-                                                : constraints.maxWidth > 600
-                                                    ? 2
-                                                    : 1;
-                                        
-                                        return GridView.builder(
-                                          padding: const EdgeInsets.all(8),
-                                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: crossAxisCount,
-                                            crossAxisSpacing: 12,
-                                            mainAxisSpacing: 12,
-                                            childAspectRatio: 1.4, // Wider cards
-                                          ),
-                                          itemCount: _users.length,
-                                          itemBuilder: (context, index) {
+                                    ),
+                                  )
+                                : LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      // Calculate number of columns based on screen width
+                                      final crossAxisCount = constraints.maxWidth > 1200
+                                          ? 4
+                                          : constraints.maxWidth > 900
+                                              ? 3
+                                              : constraints.maxWidth > 600
+                                                  ? 2
+                                                  : 1;
+                                      
+                                      return GridView.builder(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        padding: const EdgeInsets.all(8),
+                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: crossAxisCount,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 1.4, // Wider cards
+                                        ),
+                                        itemCount: _users.length,
+                                        itemBuilder: (context, index) {
                                             final user = _users[index];
                                             final name = user['name'] as String? ?? 'Unknown';
                                             final email = user['email'] as String? ?? '';
@@ -616,11 +642,10 @@ class _UsersPageState extends State<UsersPage> {
                                             ),
                                           ),
                                         );
-                                          },
-                                        );
-                                      },
-                                    ),
-                        ),
+                                        },
+                                      );
+                                    },
+                                  ),
                         // Pagination
                         if (!_isLoading && _users.isNotEmpty)
                           Padding(
@@ -663,6 +688,7 @@ class _UsersPageState extends State<UsersPage> {
           ),
         ],
       ),
+    ),
     );
   }
 

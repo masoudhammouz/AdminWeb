@@ -111,19 +111,43 @@ class _CommunityPageState extends State<CommunityPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/community'),
-          Expanded(
-            child: Column(
-              children: [
-                const app_bar.AppBar(),
-                Expanded(
-                  child: Column(
-                    children: [
-                      TabBar(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/community'),
+            Expanded(
+              child: Column(
+                children: [
+                  const app_bar.AppBar(),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_back),
+                                onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                                tooltip: 'Back to Dashboard',
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Community',
+                                style: Theme.of(context).textTheme.displayMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                        TabBar(
                         controller: _tabController,
                         onTap: (index) {
                           if (index == 0) _loadPosts();
@@ -154,6 +178,7 @@ class _CommunityPageState extends State<CommunityPage> with SingleTickerProvider
           ),
         ],
       ),
+    ),
     );
   }
 

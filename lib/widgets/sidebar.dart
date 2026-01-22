@@ -1,10 +1,63 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
+import '../services/chat_service.dart';
 
-class Sidebar extends StatelessWidget {
+class Sidebar extends StatefulWidget {
   final String? currentRoute;
   
   const Sidebar({super.key, this.currentRoute});
+
+  @override
+  State<Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<Sidebar> {
+  int _unreadCount = 0;
+  Timer? _pollingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUnreadCount();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      _loadUnreadCount();
+    });
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await ChatService.getTotalUnreadCount();
+      if (mounted) {
+        setState(() {
+          _unreadCount = count;
+        });
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  String? _getBadgeText() {
+    if (_unreadCount <= 0) return null;
+    if (_unreadCount < 10) return _unreadCount.toString();
+    return '+9';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,74 +94,66 @@ class Sidebar extends StatelessWidget {
                 _NavItem(
                   icon: Icons.dashboard,
                   label: 'Dashboard',
-                  isActive: currentRoute == '/dashboard' || currentRoute == '/',
+                  isActive: widget.currentRoute == '/dashboard' || widget.currentRoute == '/',
                   onTap: () {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (route) => false);
+                    Navigator.of(context).pushReplacementNamed('/dashboard');
                   },
                 ),
                 _NavItem(
                   icon: Icons.people,
                   label: 'Users',
-                  isActive: currentRoute == '/users',
+                  isActive: widget.currentRoute == '/users',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/users');
+                    Navigator.of(context).pushReplacementNamed('/users');
                   },
                 ),
                 _NavItem(
                   icon: Icons.category,
                   label: 'Categories',
-                  isActive: currentRoute == '/categories',
+                  isActive: widget.currentRoute == '/categories',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/categories');
-                  },
-                ),
-                _NavItem(
-                  icon: Icons.book,
-                  label: 'Words',
-                  isActive: currentRoute == '/words',
-                  onTap: () {
-                    Navigator.of(context).pushNamed('/words');
+                    Navigator.of(context).pushReplacementNamed('/categories');
                   },
                 ),
                 _NavItem(
                   icon: Icons.abc,
                   label: 'Letter Sounds',
-                  isActive: currentRoute == '/letter-sounds',
+                  isActive: widget.currentRoute == '/letter-sounds',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/letter-sounds');
+                    Navigator.of(context).pushReplacementNamed('/letter-sounds');
                   },
                 ),
                 _NavItem(
                   icon: Icons.route,
                   label: 'Journey',
-                  isActive: currentRoute == '/journey',
+                  isActive: widget.currentRoute == '/journey',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/journey');
+                    Navigator.of(context).pushReplacementNamed('/journey');
                   },
                 ),
                 _NavItem(
                   icon: Icons.forum,
                   label: 'Community',
-                  isActive: currentRoute == '/community',
+                  isActive: widget.currentRoute == '/community',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/community');
+                    Navigator.of(context).pushReplacementNamed('/community');
                   },
                 ),
                 _NavItem(
                   icon: Icons.chat,
                   label: 'Support Chat',
-                  badge: '3',
-                  isActive: currentRoute == '/chat',
+                  badge: _getBadgeText(),
+                  isActive: widget.currentRoute == '/chat',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/chat');
+                    Navigator.of(context).pushReplacementNamed('/chat');
                   },
                 ),
                 _NavItem(
                   icon: Icons.notifications,
                   label: 'Notifications',
-                  isActive: currentRoute == '/notifications',
+                  isActive: widget.currentRoute == '/notifications',
                   onTap: () {
-                    Navigator.of(context).pushNamed('/notifications');
+                    Navigator.of(context).pushReplacementNamed('/notifications');
                   },
                 ),
               ],

@@ -7,8 +7,9 @@ import '../services/categories_service.dart';
 
 class WordFormPage extends StatefulWidget {
   final Map<String, dynamic>? word;
+  final String? categoryId;
 
-  const WordFormPage({super.key, this.word});
+  const WordFormPage({super.key, this.word, this.categoryId});
 
   @override
   State<WordFormPage> createState() => _WordFormPageState();
@@ -48,6 +49,9 @@ class _WordFormPageState extends State<WordFormPage> {
       } else {
         _selectedCategoryId = categoryObj as String?;
       }
+    } else if (widget.categoryId != null) {
+      // If categoryId is provided (when adding word from category detail page)
+      _selectedCategoryId = widget.categoryId;
     }
   }
 
@@ -69,7 +73,8 @@ class _WordFormPageState extends State<WordFormPage> {
       setState(() {
         _categories = categories;
         _isLoadingCategories = false;
-        if (_selectedCategoryId == null && categories.isNotEmpty) {
+        // Only set default category if not provided via categoryId parameter and not editing existing word
+        if (_selectedCategoryId == null && categories.isNotEmpty && widget.word == null && widget.categoryId == null) {
           _selectedCategoryId = categories[0]['_id'] as String? ?? categories[0]['id'] as String?;
         }
       });
@@ -132,13 +137,30 @@ class _WordFormPageState extends State<WordFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.beige,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          color: AppColors.beige,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: app_bar.AppBar()),
+            ],
+          ),
+        ),
+      ),
       body: Row(
         children: [
           Sidebar(currentRoute: '/words'),
           Expanded(
             child: Column(
               children: [
-                const app_bar.AppBar(),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),

@@ -104,28 +104,45 @@ class _WordsPageState extends State<WordsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/words'),
-          Expanded(
-            child: Column(
-              children: [
-                const app_bar.AppBar(),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Words',
-                              style: Theme.of(context).textTheme.displayMedium,
-                            ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/words'),
+            Expanded(
+              child: Column(
+                children: [
+                  const app_bar.AppBar(),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                                    tooltip: 'Back to Dashboard',
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Words',
+                                    style: Theme.of(context).textTheme.displayMedium,
+                                  ),
+                                ],
+                              ),
                             ElevatedButton.icon(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -380,6 +397,7 @@ class _WordsPageState extends State<WordsPage> {
           ),
         ],
       ),
+    ),
     );
   }
 }

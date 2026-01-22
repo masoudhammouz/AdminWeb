@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import '../widgets/sidebar.dart';
@@ -11,12 +12,15 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   List<dynamic> _conversations = [];
   String? _selectedConversationId;
   List<dynamic> _messages = [];
   final _messageController = TextEditingController();
   bool _isLoading = true;
+  Timer? _conversationsPollingTimer;
+  Timer? _messagesPollingTimer;
+  bool _isScreenVisible = true;
 
   String _initialFor(String? name) {
     final trimmed = (name ?? '').trim();
@@ -27,58 +31,127 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadConversations();
+    _startPolling();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _conversationsPollingTimer?.cancel();
+    _messagesPollingTimer?.cancel();
     _messageController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadConversations() async {
-    setState(() => _isLoading = true);
-    final result = await ChatService.getAllConversations();
-    if (result['success'] == true) {
-      final data = result['data'];
-      setState(() {
-        if (data is Map) {
-          _conversations = data['data'] as List<dynamic>? ?? [];
-        } else if (data is List) {
-          _conversations = data;
-        } else {
-          _conversations = [];
-        }
-        _isLoading = false;
-      });
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isScreenVisible = state == AppLifecycleState.resumed;
+    if (_isScreenVisible) {
+      _startPolling();
     } else {
-      setState(() => _isLoading = false);
+      _stopPolling();
     }
   }
 
-  Future<void> _loadMessages(String conversationId) async {
-    setState(() {
-      _selectedConversationId = conversationId;
-      _isLoading = true;
+  void _startPolling() {
+    _stopPolling();
+    if (!mounted) return;
+    
+    // Poll conversations every 5 seconds
+    _conversationsPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted || !_isScreenVisible) {
+        timer.cancel();
+        return;
+      }
+      _loadConversations(silent: true);
     });
+    
+    // Poll messages every 3 seconds if conversation is selected
+    _messagesPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted || !_isScreenVisible || _selectedConversationId == null) {
+        return;
+      }
+      _loadMessages(_selectedConversationId!, silent: true);
+    });
+  }
+
+  void _stopPolling() {
+    _conversationsPollingTimer?.cancel();
+    _messagesPollingTimer?.cancel();
+    _conversationsPollingTimer = null;
+    _messagesPollingTimer = null;
+  }
+
+  Future<void> _loadConversations({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _isLoading = true);
+    }
+    final result = await ChatService.getAllConversations();
+    if (result['success'] == true) {
+      final data = result['data'];
+      final newConversations = data is Map
+          ? (data['data'] as List<dynamic>? ?? [])
+          : (data is List ? data : []);
+      
+      // Check if conversations changed
+      final conversationsChanged = _conversations.length != newConversations.length ||
+          (newConversations.isNotEmpty && _conversations.isNotEmpty &&
+           newConversations.first['_id'] != _conversations.first['_id']);
+      
+      if (conversationsChanged || !silent) {
+        setState(() {
+          _conversations = newConversations;
+          _isLoading = false;
+        });
+      } else if (!silent) {
+        setState(() => _isLoading = false);
+      }
+    } else {
+      if (!silent) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadMessages(String conversationId, {bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _selectedConversationId = conversationId;
+        _isLoading = true;
+      });
+    }
     final result = await ChatService.getMessages(conversationId);
     if (result['success'] == true) {
       final data = result['data'];
-      setState(() {
-        if (data is Map) {
-          _messages = data['data'] as List<dynamic>? ?? [];
-        } else if (data is List) {
-          _messages = data;
-        } else {
-          _messages = [];
+      final newMessages = data is Map
+          ? (data['data'] as List<dynamic>? ?? [])
+          : (data is List ? data : []);
+      
+      // Check if messages changed
+      final messagesChanged = _messages.length != newMessages.length ||
+          (newMessages.isNotEmpty && _messages.isNotEmpty &&
+           newMessages.last['_id'] != _messages.last['_id']);
+      
+      if (messagesChanged || !silent) {
+        setState(() {
+          _messages = newMessages;
+          _isLoading = false;
+        });
+        if (messagesChanged && !silent) {
+          // Mark as read only on manual load
+          await ChatService.markAsRead(conversationId);
+          _loadConversations(); // Refresh to update unread count
         }
-        _isLoading = false;
-      });
-      // Mark as read
-      await ChatService.markAsRead(conversationId);
-      _loadConversations(); // Refresh to update unread count
+      } else if (!silent) {
+        setState(() => _isLoading = false);
+      }
     } else {
-      setState(() => _isLoading = false);
+      if (!silent) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -90,8 +163,8 @@ class _ChatPageState extends State<ChatPage> {
     
     final result = await ChatService.sendMessage(_selectedConversationId!, content);
     if (result['success'] == true) {
-      _loadMessages(_selectedConversationId!);
-      _loadConversations();
+      _loadMessages(_selectedConversationId!, silent: false);
+      _loadConversations(silent: false);
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -104,20 +177,44 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.beige,
-      body: Row(
-        children: [
-          Sidebar(currentRoute: '/chat'),
-          Expanded(
-            child: Column(
-              children: [
-                const app_bar.AppBar(),
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Conversations list
-                      Container(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.beige,
+        body: Row(
+          children: [
+            Sidebar(currentRoute: '/chat'),
+            Expanded(
+              child: Column(
+                children: [
+                  const app_bar.AppBar(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.of(context).pushReplacementNamed('/dashboard'),
+                          tooltip: 'Back to Dashboard',
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Support Chat',
+                          style: Theme.of(context).textTheme.displayMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Conversations list
+                        Container(
                         width: 320,
                         decoration: BoxDecoration(
                           color: AppColors.white,
@@ -421,6 +518,7 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -58,4 +58,27 @@ class ChatService {
   static Future<Map<String, dynamic>> deleteConversation(String conversationId) async {
     return await ApiService.delete(ApiConfig.chatConversationUrl(conversationId));
   }
+
+  // Get total unread count across all conversations
+  static Future<int> getTotalUnreadCount() async {
+    try {
+      final result = await getAllConversations();
+      if (result['success'] == true) {
+        final data = result['data'];
+        final conversations = data is Map
+            ? (data['data'] as List<dynamic>? ?? [])
+            : (data is List ? data : []);
+        
+        int total = 0;
+        for (final conv in conversations) {
+          final unread = conv['unreadCount'] as int? ?? 0;
+          total += unread;
+        }
+        return total;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
 }

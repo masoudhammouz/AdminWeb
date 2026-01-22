@@ -2,45 +2,40 @@ import 'package:flutter/material.dart';
 import '../utils/theme.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/app_bar.dart' as app_bar;
-import '../services/journey_service.dart';
+import '../services/placement_service.dart';
 
-class JourneyQuestionFormPage extends StatefulWidget {
+class PlacementQuestionFormPage extends StatefulWidget {
   final Map<String, dynamic>? question;
-  final String? levelId;
-  final int? stageNumber;
 
-  const JourneyQuestionFormPage({
-    super.key,
-    this.question,
-    this.levelId,
-    this.stageNumber,
-  });
+  const PlacementQuestionFormPage({super.key, this.question});
 
   @override
-  State<JourneyQuestionFormPage> createState() => _JourneyQuestionFormPageState();
+  State<PlacementQuestionFormPage> createState() => _PlacementQuestionFormPageState();
 }
 
-class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
+class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _promptController = TextEditingController();
-  final _orderController = TextEditingController();
+  final _questionTextController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _maxPointsController = TextEditingController();
   final _pointsController = TextEditingController();
+  final _mediaUrlController = TextEditingController();
   final _audioUrlController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _correctTextController = TextEditingController();
   
-  String _selectedLevel = 'BEGINNER';
-  String _selectedType = 'mcq';
-  int _stageNumber = 1;
-  bool _isActive = true;
+  String _selectedType = 'vocabulary';
+  String _selectedSkill = 'vocabulary';
+  String? _selectedMainLevel;
+  String? _selectedSubLevel;
   bool _isLoading = false;
   
-  // Options for MCQ
+  // Options for MCQ types
   final List<Map<String, dynamic>> _options = [
-    {'key': 'A', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
-    {'key': 'B', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
-    {'key': 'C', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
-    {'key': 'D', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
+    {'key': 'A', 'text': TextEditingController()},
+    {'key': 'B', 'text': TextEditingController()},
+    {'key': 'C', 'text': TextEditingController()},
+    {'key': 'D', 'text': TextEditingController()},
   ];
   String? _correctKey;
 
@@ -48,49 +43,42 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
   void initState() {
     super.initState();
     if (widget.question != null) {
-      _promptController.text = widget.question!['prompt'] as String? ?? '';
-      _orderController.text = (widget.question!['order'] as int? ?? 1).toString();
-      _pointsController.text = (widget.question!['points'] as int? ?? 10).toString();
+      _questionTextController.text = widget.question!['questionTextEN'] as String? ?? '';
+      _selectedType = widget.question!['type'] as String? ?? 'vocabulary';
+      _selectedSkill = widget.question!['skill'] as String? ?? 'vocabulary';
+      _selectedMainLevel = widget.question!['mainLevel'] as String?;
+      _selectedSubLevel = widget.question!['subLevel'] as String?;
+      _weightController.text = widget.question!['weight']?.toString() ?? '';
+      _maxPointsController.text = widget.question!['maxPoints']?.toString() ?? '';
+      _pointsController.text = widget.question!['points']?.toString() ?? '1';
+      _mediaUrlController.text = widget.question!['mediaUrl'] as String? ?? '';
       _audioUrlController.text = widget.question!['audioUrl'] as String? ?? '';
       _imageUrlController.text = widget.question!['imageUrl'] as String? ?? '';
       _correctTextController.text = widget.question!['correctText'] as String? ?? '';
-      _selectedLevel = widget.question!['levelId'] as String? ?? 'BEGINNER';
-      final questionType = widget.question!['type'] as String? ?? 'mcq';
-      // Validate type exists in dropdown items
-      final validTypes = ['mcq', 'listening_mcq', 'image_mcq', 'fill_blank', 'writing', 'true_false'];
-      _selectedType = validTypes.contains(questionType) ? questionType : 'mcq';
-      _stageNumber = widget.question!['stageNumber'] as int? ?? 1;
-      _isActive = widget.question!['isActive'] as bool? ?? true;
       _correctKey = widget.question!['correctKey'] as String?;
       
       final options = widget.question!['options'] as List<dynamic>? ?? [];
       for (var i = 0; i < _options.length && i < options.length; i++) {
         final opt = options[i];
         (_options[i]['text'] as TextEditingController).text = opt['text'] as String? ?? '';
-        (_options[i]['audioUrl'] as TextEditingController).text = opt['audioUrl'] as String? ?? '';
       }
     } else {
-      // If opened from stage detail, use provided levelId and stageNumber
-      if (widget.levelId != null) {
-        _selectedLevel = widget.levelId!;
-      }
-      if (widget.stageNumber != null) {
-        _stageNumber = widget.stageNumber!;
-      }
+      _pointsController.text = '1';
     }
   }
 
   @override
   void dispose() {
-    _promptController.dispose();
-    _orderController.dispose();
+    _questionTextController.dispose();
+    _weightController.dispose();
+    _maxPointsController.dispose();
     _pointsController.dispose();
+    _mediaUrlController.dispose();
     _audioUrlController.dispose();
     _imageUrlController.dispose();
     _correctTextController.dispose();
     for (var opt in _options) {
       (opt['text'] as TextEditingController).dispose();
-      (opt['audioUrl'] as TextEditingController).dispose();
     }
     super.dispose();
   }
@@ -101,15 +89,39 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
     setState(() => _isLoading = true);
 
     final data = <String, dynamic>{
-      'levelId': _selectedLevel,
-      'stageNumber': _stageNumber,
-      'order': int.tryParse(_orderController.text) ?? 1,
+      'questionTextEN': _questionTextController.text.trim(),
       'type': _selectedType,
-      'prompt': _promptController.text.trim(),
-      'points': int.tryParse(_pointsController.text) ?? 10,
-      'isActive': _isActive,
+      'skill': _selectedSkill,
     };
 
+    if (_selectedMainLevel != null) {
+      data['mainLevel'] = _selectedMainLevel;
+    }
+    if (_selectedSubLevel != null) {
+      data['subLevel'] = _selectedSubLevel;
+    }
+    if (_weightController.text.isNotEmpty) {
+      final weight = double.tryParse(_weightController.text);
+      if (weight != null) {
+        data['weight'] = weight;
+      }
+    }
+    if (_maxPointsController.text.isNotEmpty) {
+      final maxPoints = double.tryParse(_maxPointsController.text);
+      if (maxPoints != null) {
+        data['maxPoints'] = maxPoints;
+      }
+    }
+    if (_pointsController.text.isNotEmpty) {
+      final points = double.tryParse(_pointsController.text);
+      if (points != null) {
+        data['points'] = points;
+      }
+    }
+
+    if (_mediaUrlController.text.isNotEmpty) {
+      data['mediaUrl'] = _mediaUrlController.text.trim();
+    }
     if (_audioUrlController.text.isNotEmpty) {
       data['audioUrl'] = _audioUrlController.text.trim();
     }
@@ -118,17 +130,13 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
     }
 
     // Add options for MCQ types
-    if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq') {
+    if (_selectedType == 'vocabulary' || _selectedType == 'grammar' || 
+        _selectedType == 'reading' || _selectedType == 'listening') {
       final options = _options.map((opt) {
-        final optionData = <String, dynamic>{
+        return <String, dynamic>{
           'key': opt['key'] as String,
           'text': (opt['text'] as TextEditingController).text.trim(),
         };
-        final audioUrl = (opt['audioUrl'] as TextEditingController).text.trim();
-        if (audioUrl.isNotEmpty) {
-          optionData['audioUrl'] = audioUrl;
-        }
-        return optionData;
       }).toList();
       data['options'] = options;
       if (_correctKey != null) {
@@ -136,19 +144,19 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
       }
     }
 
-    // Add correctText for fill_blank and writing
-    if (_selectedType == 'fill_blank' || _selectedType == 'writing') {
+    // Add correctText for writing
+    if (_selectedType == 'writing') {
       if (_correctTextController.text.isNotEmpty) {
         data['correctText'] = _correctTextController.text.trim();
       }
     }
 
     final result = widget.question != null
-        ? await JourneyService.updateQuestion(
+        ? await PlacementService.update(
             widget.question!['_id'] as String? ?? widget.question!['id'] as String? ?? '',
             data,
           )
-        : await JourneyService.createQuestion(data);
+        : await PlacementService.create(data);
 
     setState(() => _isLoading = false);
 
@@ -157,8 +165,8 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.question != null
-                ? 'Question updated successfully'
-                : 'Question created successfully'),
+                ? 'Placement question updated successfully'
+                : 'Placement question created successfully'),
           ),
         );
         Navigator.of(context).pop(true);
@@ -231,112 +239,78 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: widget.levelId != null && widget.question == null
-                                            ? TextFormField(
-                                                controller: TextEditingController(text: _selectedLevel),
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Level',
-                                                ),
-                                                enabled: false,
-                                              )
-                                            : DropdownButtonFormField<String>(
-                                                value: _selectedLevel,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Level',
-                                                ),
-                                                items: const [
-                                                  DropdownMenuItem(value: 'BEGINNER', child: Text('Beginner')),
-                                                  DropdownMenuItem(value: 'INTERMEDIATE', child: Text('Intermediate')),
-                                                  DropdownMenuItem(value: 'ADVANCED', child: Text('Advanced')),
-                                                ],
-                                                onChanged: (value) {
-                                                  setState(() {
-                                                    _selectedLevel = value ?? 'BEGINNER';
-                                                  });
-                                                },
-                                              ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _orderController,
+                                        child: DropdownButtonFormField<String>(
+                                          value: _selectedType,
                                           decoration: const InputDecoration(
-                                            labelText: 'Order',
+                                            labelText: 'Type',
                                           ),
-                                          keyboardType: TextInputType.number,
-                                          validator: (value) {
-                                            if (value == null || value.trim().isEmpty) {
-                                              return 'Required';
-                                            }
-                                            if (int.tryParse(value) == null) {
-                                              return 'Must be a number';
-                                            }
-                                            return null;
+                                          items: const [
+                                            DropdownMenuItem(value: 'vocabulary', child: Text('Vocabulary')),
+                                            DropdownMenuItem(value: 'grammar', child: Text('Grammar')),
+                                            DropdownMenuItem(value: 'reading', child: Text('Reading')),
+                                            DropdownMenuItem(value: 'listening', child: Text('Listening')),
+                                            DropdownMenuItem(value: 'writing', child: Text('Writing')),
+                                          ],
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedType = value ?? 'vocabulary';
+                                              _selectedSkill = _selectedType;
+                                            });
                                           },
                                         ),
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
-                                        child: widget.stageNumber != null && widget.question == null
-                                            ? TextFormField(
-                                                controller: TextEditingController(text: _stageNumber.toString()),
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Stage Number',
-                                                ),
-                                                enabled: false,
-                                              )
-                                            : TextFormField(
-                                                controller: TextEditingController(text: _stageNumber.toString()),
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Stage Number',
-                                                ),
-                                                keyboardType: TextInputType.number,
-                                                onChanged: (value) {
-                                                  _stageNumber = int.tryParse(value) ?? 1;
-                                                },
-                                                validator: (value) {
-                                                  if (value == null || value.trim().isEmpty) {
-                                                    return 'Required';
-                                                  }
-                                                  if (int.tryParse(value) == null) {
-                                                    return 'Must be a number';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
+                                        child: DropdownButtonFormField<String?>(
+                                          value: _selectedMainLevel,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Main Level (Optional)',
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(value: null, child: Text('None')),
+                                            DropdownMenuItem(value: 'BEGINNER', child: Text('Beginner')),
+                                            DropdownMenuItem(value: 'INTERMEDIATE', child: Text('Intermediate')),
+                                            DropdownMenuItem(value: 'ADVANCED', child: Text('Advanced')),
+                                          ],
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedMainLevel = value;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: DropdownButtonFormField<String?>(
+                                          value: _selectedSubLevel,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Sub-Level (Optional)',
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(value: null, child: Text('None')),
+                                            DropdownMenuItem(value: 'LOW', child: Text('Low')),
+                                            DropdownMenuItem(value: 'MID', child: Text('Mid')),
+                                            DropdownMenuItem(value: 'HIGH', child: Text('High')),
+                                          ],
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _selectedSubLevel = value;
+                                            });
+                                          },
+                                        ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  DropdownButtonFormField<String>(
-                                    value: _selectedType,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Question Type',
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'mcq', child: Text('Multiple Choice')),
-                                      DropdownMenuItem(value: 'listening_mcq', child: Text('Listening MCQ')),
-                                      DropdownMenuItem(value: 'image_mcq', child: Text('Image MCQ')),
-                                      DropdownMenuItem(value: 'fill_blank', child: Text('Fill in the Blank')),
-                                      DropdownMenuItem(value: 'writing', child: Text('Writing')),
-                                      DropdownMenuItem(value: 'true_false', child: Text('True/False')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedType = value ?? 'mcq';
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
                                   TextFormField(
-                                    controller: _promptController,
+                                    controller: _questionTextController,
                                     decoration: const InputDecoration(
-                                      labelText: 'Question/Prompt',
+                                      labelText: 'Question Text (English)',
                                     ),
                                     maxLines: 3,
                                     validator: (value) {
                                       if (value == null || value.trim().isEmpty) {
-                                        return 'Please enter question';
+                                        return 'Please enter question text';
                                       }
                                       return null;
                                     },
@@ -346,18 +320,61 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                     children: [
                                       Expanded(
                                         child: TextFormField(
-                                          controller: _audioUrlController,
+                                          controller: _weightController,
                                           decoration: const InputDecoration(
-                                            labelText: 'Audio URL (Optional)',
+                                            labelText: 'Weight (Optional)',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _maxPointsController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Max Points (Optional)',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _pointsController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Points (Legacy)',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          validator: (value) {
+                                            if (value == null || value.trim().isEmpty) {
+                                              return 'Required';
+                                            }
+                                            if (double.tryParse(value) == null) {
+                                              return 'Must be a number';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _mediaUrlController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Media URL (Optional)',
                                           ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: TextFormField(
-                                          controller: _imageUrlController,
+                                          controller: _audioUrlController,
                                           decoration: const InputDecoration(
-                                            labelText: 'Image URL (Optional)',
+                                            labelText: 'Audio URL (Optional)',
                                           ),
                                         ),
                                       ),
@@ -365,22 +382,13 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(
-                                    controller: _pointsController,
+                                    controller: _imageUrlController,
                                     decoration: const InputDecoration(
-                                      labelText: 'Points',
+                                      labelText: 'Image URL (Optional)',
                                     ),
-                                    keyboardType: TextInputType.number,
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return 'Required';
-                                      }
-                                      if (int.tryParse(value) == null) {
-                                        return 'Must be a number';
-                                      }
-                                      return null;
-                                    },
                                   ),
-                                  if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq') ...[
+                                  if (_selectedType == 'vocabulary' || _selectedType == 'grammar' || 
+                                      _selectedType == 'reading' || _selectedType == 'listening') ...[
                                     const SizedBox(height: 24),
                                     Text(
                                       'Options',
@@ -390,7 +398,6 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                     ..._options.map((opt) {
                                       final key = opt['key'] as String;
                                       final textController = opt['text'] as TextEditingController;
-                                      final audioController = opt['audioUrl'] as TextEditingController;
                                       return Card(
                                         margin: const EdgeInsets.only(bottom: 16),
                                         child: Padding(
@@ -431,13 +438,6 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                                   return null;
                                                 },
                                               ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: audioController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Audio URL (Optional)',
-                                                ),
-                                              ),
                                             ],
                                           ),
                                         ),
@@ -452,32 +452,16 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                         ),
                                       ),
                                   ],
-                                  if (_selectedType == 'fill_blank' || _selectedType == 'writing') ...[
+                                  if (_selectedType == 'writing') ...[
                                     const SizedBox(height: 16),
                                     TextFormField(
                                       controller: _correctTextController,
                                       decoration: const InputDecoration(
-                                        labelText: 'Correct Answer',
+                                        labelText: 'Correct Answer (Optional)',
                                       ),
-                                      maxLines: 2,
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return 'Please enter correct answer';
-                                        }
-                                        return null;
-                                      },
+                                      maxLines: 3,
                                     ),
                                   ],
-                                  const SizedBox(height: 16),
-                                  SwitchListTile(
-                                    title: const Text('Active'),
-                                    value: _isActive,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _isActive = value;
-                                      });
-                                    },
-                                  ),
                                   const SizedBox(height: 24),
                                   Row(
                                     children: [

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../utils/theme.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/app_bar.dart' as app_bar;
 import '../services/categories_service.dart';
+import '../services/api_service.dart';
+import '../utils/api_config.dart';
 
 class CategoryFormPage extends StatefulWidget {
   final Map<String, dynamic>? category;
@@ -22,6 +25,9 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   final _orderController = TextEditingController();
   bool _isLoading = false;
   bool _isActive = true;
+  PlatformFile? _selectedImage;
+  String? _imageUrl;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -33,6 +39,11 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
       _iconController.text = widget.category!['icon'] as String? ?? '';
       _orderController.text = (widget.category!['order'] as int? ?? 0).toString();
       _isActive = widget.category!['isActive'] as bool? ?? true;
+      // Load existing image URL if available
+      _imageUrl = widget.category!['icon'] as String?;
+      if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+        _iconController.text = _imageUrl!;
+      }
     }
   }
 
@@ -46,6 +57,80 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['png'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+        // Check if file has bytes (for web) or path (for mobile)
+        if (file.bytes == null && file.path == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Error: Could not read file')),
+            );
+          }
+          return;
+        }
+        setState(() {
+          _selectedImage = file;
+        });
+        await _uploadImage();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_selectedImage == null) return;
+
+    setState(() => _isUploadingImage = true);
+
+    final result = await ApiService.uploadFile(
+      ApiConfig.imageUploadUrl,
+      _selectedImage!,
+      fieldName: 'image',
+    );
+
+    setState(() => _isUploadingImage = false);
+
+    if (result['success'] == true) {
+      final data = result['data'] as Map<String, dynamic>?;
+      final url = data?['url'] as String? ?? data?['imageUrl'] as String?;
+      if (url != null) {
+        setState(() {
+          _imageUrl = url;
+          _iconController.text = url;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Image uploaded successfully')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Image uploaded but URL not received')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['error'] as String? ?? 'Failed to upload image')),
+        );
+      }
+    }
+  }
+
   Future<void> _saveCategory() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -57,6 +142,7 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
       'slug': _slugController.text.trim().toLowerCase(),
       'icon': _iconController.text.trim(),
       'order': int.tryParse(_orderController.text) ?? 0,
+      'isActive': _isActive,
     };
 
     final result = widget.category != null
@@ -92,13 +178,30 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.beige,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          color: AppColors.beige,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: app_bar.AppBar()),
+            ],
+          ),
+        ),
+      ),
       body: Row(
         children: [
           Sidebar(currentRoute: '/categories'),
           Expanded(
             child: Column(
               children: [
-                const app_bar.AppBar(),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -160,12 +263,128 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
                                     },
                                   ),
                                   const SizedBox(height: 16),
-                                  TextFormField(
-                                    controller: _iconController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Icon',
-                                      hintText: 'icon_name',
-                                    ),
+                                  // Image Upload Section
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Category Icon (PNG)',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              height: 120,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: AppColors.grey600.withOpacity(0.3),
+                                                  width: 2,
+                                                  style: BorderStyle.solid,
+                                                ),
+                                                borderRadius: BorderRadius.circular(12),
+                                                color: AppColors.grey100,
+                                              ),
+                                              child: _imageUrl != null && _imageUrl!.isNotEmpty
+                                                  ? ClipRRect(
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      child: Image.network(
+                                                        _imageUrl!,
+                                                        fit: BoxFit.contain,
+                                                        errorBuilder: (context, error, stackTrace) {
+                                                          return Center(
+                                                            child: Column(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                              children: [
+                                                                Icon(Icons.broken_image, color: AppColors.grey600),
+                                                                const SizedBox(height: 4),
+                                                                Text(
+                                                                  'Failed to load image',
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    color: AppColors.grey600,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    )
+                                                  : _selectedImage != null && _selectedImage!.bytes != null
+                                                      ? ClipRRect(
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          child: Image.memory(
+                                                            _selectedImage!.bytes!,
+                                                            fit: BoxFit.contain,
+                                                          ),
+                                                        )
+                                                      : Center(
+                                                          child: Column(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Icon(Icons.image_outlined, size: 40, color: AppColors.grey600),
+                                                              const SizedBox(height: 8),
+                                                              Text(
+                                                                'No image selected',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: AppColors.grey600,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              ElevatedButton.icon(
+                                                onPressed: _isUploadingImage ? null : _pickImage,
+                                                icon: _isUploadingImage
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      )
+                                                    : const Icon(Icons.upload_file),
+                                                label: Text(_isUploadingImage ? 'Uploading...' : 'Upload PNG'),
+                                              ),
+                                              if (_imageUrl != null && _imageUrl!.isNotEmpty) ...[
+                                                const SizedBox(height: 8),
+                                                OutlinedButton.icon(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _imageUrl = null;
+                                                      _selectedImage = null;
+                                                      _iconController.clear();
+                                                    });
+                                                  },
+                                                  icon: const Icon(Icons.delete, size: 16),
+                                                  label: const Text('Remove'),
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: AppColors.errorRed,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _iconController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Icon URL',
+                                          hintText: 'Image URL will appear here after upload',
+                                          helperText: 'Or enter image URL manually',
+                                        ),
+                                        readOnly: _imageUrl != null && _imageUrl!.isNotEmpty && _selectedImage == null,
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(

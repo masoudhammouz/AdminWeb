@@ -228,13 +228,30 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     return Scaffold(
       backgroundColor: AppColors.beige,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          color: AppColors.beige,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: app_bar.AppBar()),
+            ],
+          ),
+        ),
+      ),
       body: Row(
         children: [
           Sidebar(currentRoute: '/users'),
           Expanded(
             child: Column(
               children: [
-                const app_bar.AppBar(),
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
