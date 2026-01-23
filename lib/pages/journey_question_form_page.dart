@@ -35,7 +35,7 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
   bool _isActive = true;
   bool _isLoading = false;
   
-  // Options for MCQ
+  // Options for MCQ and True/False
   final List<Map<String, dynamic>> _options = [
     {'key': 'A', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
     {'key': 'B', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
@@ -43,6 +43,23 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
     {'key': 'D', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
   ];
   String? _correctKey;
+  
+  // True/False options (separate from MCQ)
+  final List<Map<String, dynamic>> _trueFalseOptions = [
+    {'key': 'True', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
+    {'key': 'False', 'text': TextEditingController(), 'audioUrl': TextEditingController()},
+  ];
+  
+  List<Map<String, dynamic>> get _activeOptions {
+    if (_selectedType == 'true_false') {
+      // True/False: only 2 options
+      return _trueFalseOptions;
+    } else if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq') {
+      // MCQ: 4 options
+      return _options;
+    }
+    return [];
+  }
 
   @override
   void initState() {
@@ -64,10 +81,25 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
       _correctKey = widget.question!['correctKey'] as String?;
       
       final options = widget.question!['options'] as List<dynamic>? ?? [];
-      for (var i = 0; i < _options.length && i < options.length; i++) {
-        final opt = options[i];
-        (_options[i]['text'] as TextEditingController).text = opt['text'] as String? ?? '';
-        (_options[i]['audioUrl'] as TextEditingController).text = opt['audioUrl'] as String? ?? '';
+      if (questionType == 'true_false') {
+        // True/False: initialize with True/False values
+        if (options.length >= 2) {
+          (_trueFalseOptions[0]['text'] as TextEditingController).text = options[0]['text'] as String? ?? 'True';
+          (_trueFalseOptions[1]['text'] as TextEditingController).text = options[1]['text'] as String? ?? 'False';
+          (_trueFalseOptions[0]['audioUrl'] as TextEditingController).text = options[0]['audioUrl'] as String? ?? '';
+          (_trueFalseOptions[1]['audioUrl'] as TextEditingController).text = options[1]['audioUrl'] as String? ?? '';
+        } else {
+          // Initialize defaults
+          (_trueFalseOptions[0]['text'] as TextEditingController).text = 'True';
+          (_trueFalseOptions[1]['text'] as TextEditingController).text = 'False';
+        }
+      } else {
+        // MCQ: use regular options
+        for (var i = 0; i < _options.length && i < options.length; i++) {
+          final opt = options[i];
+          (_options[i]['text'] as TextEditingController).text = opt['text'] as String? ?? '';
+          (_options[i]['audioUrl'] as TextEditingController).text = opt['audioUrl'] as String? ?? '';
+        }
       }
     } else {
       // If opened from stage detail, use provided levelId and stageNumber
@@ -89,6 +121,10 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
     _imageUrlController.dispose();
     _correctTextController.dispose();
     for (var opt in _options) {
+      (opt['text'] as TextEditingController).dispose();
+      (opt['audioUrl'] as TextEditingController).dispose();
+    }
+    for (var opt in _trueFalseOptions) {
       (opt['text'] as TextEditingController).dispose();
       (opt['audioUrl'] as TextEditingController).dispose();
     }
@@ -117,9 +153,9 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
       data['imageUrl'] = _imageUrlController.text.trim();
     }
 
-    // Add options for MCQ types
-    if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq') {
-      final options = _options.map((opt) {
+    // Add options for MCQ and True/False types
+    if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq' || _selectedType == 'true_false') {
+      final options = _activeOptions.map((opt) {
         final optionData = <String, dynamic>{
           'key': opt['key'] as String,
           'text': (opt['text'] as TextEditingController).text.trim(),
@@ -324,6 +360,12 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                     onChanged: (value) {
                                       setState(() {
                                         _selectedType = value ?? 'mcq';
+                                        // Reset correct key when type changes
+                                        _correctKey = null;
+                                        // Initialize True/False options if needed
+                                        if (_selectedType == 'true_false') {
+                                          // Options will be handled by _activeOptions getter
+                                        }
                                       });
                                     },
                                   ),
@@ -380,14 +422,14 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                       return null;
                                     },
                                   ),
-                                  if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq') ...[
+                                  if (_selectedType == 'mcq' || _selectedType == 'listening_mcq' || _selectedType == 'image_mcq' || _selectedType == 'true_false') ...[
                                     const SizedBox(height: 24),
                                     Text(
                                       'Options',
                                       style: Theme.of(context).textTheme.titleLarge,
                                     ),
                                     const SizedBox(height: 16),
-                                    ..._options.map((opt) {
+                                    ..._activeOptions.map((opt) {
                                       final key = opt['key'] as String;
                                       final textController = opt['text'] as TextEditingController;
                                       final audioController = opt['audioUrl'] as TextEditingController;
@@ -418,26 +460,39 @@ class _JourneyQuestionFormPageState extends State<JourneyQuestionFormPage> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: textController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Text for Option $key',
+                                              if (_selectedType != 'true_false') ...[
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: textController,
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Text for Option $key',
+                                                  ),
+                                                  validator: (value) {
+                                                    if (value == null || value.trim().isEmpty) {
+                                                      return 'Required';
+                                                    }
+                                                    return null;
+                                                  },
                                                 ),
-                                                validator: (value) {
-                                                  if (value == null || value.trim().isEmpty) {
-                                                    return 'Required';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: audioController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Audio URL (Optional)',
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: audioController,
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Audio URL (Optional)',
+                                                  ),
                                                 ),
-                                              ),
+                                              ] else ...[
+                                                // True/False: text is fixed, just show it
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: textController,
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Option $key',
+                                                  ),
+                                                  enabled: false,
+                                                  style: TextStyle(color: AppColors.grey600),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../utils/theme.dart';
@@ -35,6 +36,7 @@ class _LetterSoundFormPageState extends State<LetterSoundFormPage> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _currentlyPlayingUrl;
   bool _isPlaying = false;
+  StreamSubscription<Duration>? _positionSubscription;
 
   @override
   void initState() {
@@ -64,6 +66,7 @@ class _LetterSoundFormPageState extends State<LetterSoundFormPage> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _letterController.dispose();
     _orderController.dispose();
     _fullAudioUrlController.dispose();
@@ -78,9 +81,11 @@ class _LetterSoundFormPageState extends State<LetterSoundFormPage> {
     super.dispose();
   }
 
-  Future<void> _playAudio(String url) async {
-    if (_currentlyPlayingUrl == url && _isPlaying) {
+  Future<void> _playAudio(String url, double startTime, double endTime) async {
+    final audioKey = '$url-$startTime-$endTime';
+    if (_currentlyPlayingUrl == audioKey && _isPlaying) {
       await _audioPlayer.stop();
+      _positionSubscription?.cancel();
       setState(() {
         _isPlaying = false;
         _currentlyPlayingUrl = null;
@@ -89,25 +94,55 @@ class _LetterSoundFormPageState extends State<LetterSoundFormPage> {
     }
 
     try {
+      // Cancel previous subscription
+      _positionSubscription?.cancel();
       await _audioPlayer.stop();
+      
+      // Play the audio
       await _audioPlayer.play(UrlSource(url));
+      
+      // Seek to start time after a small delay to ensure audio is loaded
+      if (startTime > 0) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        await _audioPlayer.seek(Duration(milliseconds: (startTime * 1000).round()));
+      }
+      
       setState(() {
         _isPlaying = true;
-        _currentlyPlayingUrl = url;
+        _currentlyPlayingUrl = audioKey;
+      });
+      
+      // Listen to position changes to stop at end time
+      _positionSubscription = _audioPlayer.onPositionChanged.listen((position) {
+        final currentSeconds = position.inMilliseconds / 1000.0;
+        if (currentSeconds >= endTime) {
+          _audioPlayer.stop();
+          _positionSubscription?.cancel();
+          setState(() {
+            _isPlaying = false;
+            _currentlyPlayingUrl = null;
+          });
+        }
       });
       
       _audioPlayer.onPlayerComplete.listen((_) {
+        _positionSubscription?.cancel();
         setState(() {
           _isPlaying = false;
           _currentlyPlayingUrl = null;
         });
       });
     } catch (e) {
+      _positionSubscription?.cancel();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error playing audio: $e')),
         );
       }
+      setState(() {
+        _isPlaying = false;
+        _currentlyPlayingUrl = null;
+      });
     }
   }
 
@@ -247,10 +282,20 @@ class _LetterSoundFormPageState extends State<LetterSoundFormPage> {
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(_isPlaying && _currentlyPlayingUrl == audioUrl
+                    icon: Icon(_isPlaying && _currentlyPlayingUrl?.startsWith(audioUrl) == true
                         ? Icons.stop
                         : Icons.play_arrow),
-                    onPressed: () => _playAudio(audioUrl),
+                    onPressed: () {
+                      final startTime = double.tryParse(startTimeController.text) ?? 0;
+                      final endTime = double.tryParse(endTimeController.text) ?? 0;
+                      if (endTime > startTime) {
+                        _playAudio(audioUrl, startTime, endTime);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter valid start and end times')),
+                        );
+                      }
+                    },
                   ),
                   const Text('Test Audio'),
                 ],

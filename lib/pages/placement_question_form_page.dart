@@ -38,6 +38,24 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
     {'key': 'D', 'text': TextEditingController()},
   ];
   String? _correctKey;
+  
+  // True/False options (separate from MCQ)
+  final List<Map<String, dynamic>> _trueFalseOptions = [
+    {'key': 'True', 'text': TextEditingController()},
+    {'key': 'False', 'text': TextEditingController()},
+  ];
+  
+  List<Map<String, dynamic>> get _activeOptions {
+    if (_selectedType == 'true_false') {
+      // True/False: only 2 options
+      return _trueFalseOptions;
+    } else if (_selectedType == 'vocabulary' || _selectedType == 'grammar' || 
+               _selectedType == 'reading' || _selectedType == 'listening') {
+      // MCQ: 4 options
+      return _options;
+    }
+    return [];
+  }
 
   @override
   void initState() {
@@ -58,12 +76,30 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
       _correctKey = widget.question!['correctKey'] as String?;
       
       final options = widget.question!['options'] as List<dynamic>? ?? [];
-      for (var i = 0; i < _options.length && i < options.length; i++) {
-        final opt = options[i];
-        (_options[i]['text'] as TextEditingController).text = opt['text'] as String? ?? '';
+      if (_selectedType == 'true_false') {
+        // True/False: initialize with True/False values
+        if (options.length >= 2) {
+          (_trueFalseOptions[0]['text'] as TextEditingController).text = options[0]['text'] as String? ?? 'True';
+          (_trueFalseOptions[1]['text'] as TextEditingController).text = options[1]['text'] as String? ?? 'False';
+        } else {
+          // Initialize defaults
+          (_trueFalseOptions[0]['text'] as TextEditingController).text = 'True';
+          (_trueFalseOptions[1]['text'] as TextEditingController).text = 'False';
+        }
+      } else {
+        // MCQ: use regular options
+        for (var i = 0; i < _options.length && i < options.length; i++) {
+          final opt = options[i];
+          (_options[i]['text'] as TextEditingController).text = opt['text'] as String? ?? '';
+        }
       }
     } else {
+      // Initialize defaults for new questions
       _pointsController.text = '1';
+      if (_selectedType == 'true_false') {
+        (_trueFalseOptions[0]['text'] as TextEditingController).text = 'True';
+        (_trueFalseOptions[1]['text'] as TextEditingController).text = 'False';
+      }
     }
   }
 
@@ -78,6 +114,9 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
     _imageUrlController.dispose();
     _correctTextController.dispose();
     for (var opt in _options) {
+      (opt['text'] as TextEditingController).dispose();
+    }
+    for (var opt in _trueFalseOptions) {
       (opt['text'] as TextEditingController).dispose();
     }
     super.dispose();
@@ -129,10 +168,10 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
       data['imageUrl'] = _imageUrlController.text.trim();
     }
 
-    // Add options for MCQ types
+    // Add options for MCQ and True/False types
     if (_selectedType == 'vocabulary' || _selectedType == 'grammar' || 
-        _selectedType == 'reading' || _selectedType == 'listening') {
-      final options = _options.map((opt) {
+        _selectedType == 'reading' || _selectedType == 'listening' || _selectedType == 'true_false') {
+      final options = _activeOptions.map((opt) {
         return <String, dynamic>{
           'key': opt['key'] as String,
           'text': (opt['text'] as TextEditingController).text.trim(),
@@ -250,11 +289,14 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
                                             DropdownMenuItem(value: 'reading', child: Text('Reading')),
                                             DropdownMenuItem(value: 'listening', child: Text('Listening')),
                                             DropdownMenuItem(value: 'writing', child: Text('Writing')),
+                                            DropdownMenuItem(value: 'true_false', child: Text('True/False')),
                                           ],
                                           onChanged: (value) {
                                             setState(() {
                                               _selectedType = value ?? 'vocabulary';
                                               _selectedSkill = _selectedType;
+                                              // Reset correct key when type changes
+                                              _correctKey = null;
                                             });
                                           },
                                         ),
@@ -388,14 +430,14 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
                                     ),
                                   ),
                                   if (_selectedType == 'vocabulary' || _selectedType == 'grammar' || 
-                                      _selectedType == 'reading' || _selectedType == 'listening') ...[
+                                      _selectedType == 'reading' || _selectedType == 'listening' || _selectedType == 'true_false') ...[
                                     const SizedBox(height: 24),
                                     Text(
                                       'Options',
                                       style: Theme.of(context).textTheme.titleLarge,
                                     ),
                                     const SizedBox(height: 16),
-                                    ..._options.map((opt) {
+                                    ..._activeOptions.map((opt) {
                                       final key = opt['key'] as String;
                                       final textController = opt['text'] as TextEditingController;
                                       return Card(
@@ -425,19 +467,32 @@ class _PlacementQuestionFormPageState extends State<PlacementQuestionFormPage> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 8),
-                                              TextFormField(
-                                                controller: textController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Text for Option $key',
+                                              if (_selectedType != 'true_false') ...[
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: textController,
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Text for Option $key',
+                                                  ),
+                                                  validator: (value) {
+                                                    if (value == null || value.trim().isEmpty) {
+                                                      return 'Required';
+                                                    }
+                                                    return null;
+                                                  },
                                                 ),
-                                                validator: (value) {
-                                                  if (value == null || value.trim().isEmpty) {
-                                                    return 'Required';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
+                                              ] else ...[
+                                                // True/False: text is fixed, just show it
+                                                const SizedBox(height: 8),
+                                                TextFormField(
+                                                  controller: textController,
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Option $key',
+                                                  ),
+                                                  enabled: false,
+                                                  style: TextStyle(color: AppColors.grey600),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),

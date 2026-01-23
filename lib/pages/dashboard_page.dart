@@ -29,6 +29,10 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _usersExpanded = true;
   bool _contentExpanded = true;
   bool _activityExpanded = true;
+  
+  // Chart touch states for tooltips
+  int? _touchedPieIndex;
+  int? _touchedBarIndex;
 
   @override
   void initState() {
@@ -577,13 +581,49 @@ class _DashboardPageState extends State<DashboardPage> {
       final item = entry.value;
       final value = (item['value'] as num?)?.toDouble() ?? 0;
       final total = levelData.fold<double>(0, (sum, item) => sum + ((item['value'] as num?)?.toDouble() ?? 0));
+      final label = item['label'] as String;
+      final color = ChartHelpers.getColor(index);
+
+      final isTouched = _touchedPieIndex == index;
 
       return PieChartSectionData(
         value: value,
         title: '${total > 0 ? ((value / total) * 100).toStringAsFixed(1) : 0}%',
-        color: ChartHelpers.getColor(index),
-        radius: 100,
+        color: color,
+        radius: isTouched ? 110 : 100,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+        badgeWidget: isTouched
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$label: ${item['value']}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        badgePositionPercentageOffset: 1.3,
       );
     }).toList();
 
@@ -594,6 +634,20 @@ class _DashboardPageState extends State<DashboardPage> {
           sections: sections,
           centerSpaceRadius: 60,
           sectionsSpace: 2,
+          pieTouchData: PieTouchData(
+            touchCallback: (FlTouchEvent event, pieTouchResponse) {
+              setState(() {
+                if (!event.isInterestedForInteractions ||
+                    pieTouchResponse == null ||
+                    pieTouchResponse.touchedSection == null) {
+                  _touchedPieIndex = null;
+                  return;
+                }
+                _touchedPieIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+              });
+            },
+            enabled: true,
+          ),
         ),
       ),
     );
@@ -611,27 +665,124 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
+    final total = male + female + none;
     final sections = [
       PieChartSectionData(
         value: male.toDouble(),
-        title: '${male > 0 ? ((male / (male + female + none)) * 100).toStringAsFixed(1) : 0}%',
+        title: '${male > 0 ? ((male / total) * 100).toStringAsFixed(1) : 0}%',
         color: Colors.indigo,
-        radius: 100,
+        radius: _touchedPieIndex == 0 ? 110 : 100,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+        badgeWidget: _touchedPieIndex == 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.indigo,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Male: $male',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        badgePositionPercentageOffset: 1.3,
       ),
       PieChartSectionData(
         value: female.toDouble(),
-        title: '${female > 0 ? ((female / (male + female + none)) * 100).toStringAsFixed(1) : 0}%',
+        title: '${female > 0 ? ((female / total) * 100).toStringAsFixed(1) : 0}%',
         color: Colors.pink,
-        radius: 100,
+        radius: _touchedPieIndex == 1 ? 110 : 100,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+        badgeWidget: _touchedPieIndex == 1
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.pink,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Female: $female',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        badgePositionPercentageOffset: 1.3,
       ),
       PieChartSectionData(
         value: none.toDouble(),
-        title: '${none > 0 ? ((none / (male + female + none)) * 100).toStringAsFixed(1) : 0}%',
+        title: '${none > 0 ? ((none / total) * 100).toStringAsFixed(1) : 0}%',
         color: Colors.grey.shade700,
-        radius: 100,
+        radius: _touchedPieIndex == 2 ? 110 : 100,
         titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+        badgeWidget: _touchedPieIndex == 2
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade700,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'None: $none',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        badgePositionPercentageOffset: 1.3,
       ),
     ];
 
@@ -642,6 +793,20 @@ class _DashboardPageState extends State<DashboardPage> {
           sections: sections,
           centerSpaceRadius: 60,
           sectionsSpace: 2,
+          pieTouchData: PieTouchData(
+            touchCallback: (FlTouchEvent event, pieTouchResponse) {
+              setState(() {
+                if (!event.isInterestedForInteractions ||
+                    pieTouchResponse == null ||
+                    pieTouchResponse.touchedSection == null) {
+                  _touchedPieIndex = null;
+                  return;
+                }
+                _touchedPieIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+              });
+            },
+            enabled: true,
+          ),
         ),
       ),
     );
@@ -699,9 +864,12 @@ class _DashboardPageState extends State<DashboardPage> {
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
                   if (index >= 0 && index < ageGroups.length) {
-                    return Text(
-                      ageGroups[index]['label'] as String,
-                      style: TextStyle(fontSize: 10, color: AppColors.grey700),
+                    return Tooltip(
+                      message: '${ageGroups[index]['label'] as String}: ${ageGroups[index]['value'] as int} users',
+                      child: Text(
+                        ageGroups[index]['label'] as String,
+                        style: TextStyle(fontSize: 10, color: AppColors.grey700),
+                      ),
                     );
                   }
                   return const Text('');
@@ -717,6 +885,23 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           borderData: FlBorderData(show: true),
           barGroups: barGroups,
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final index = group.x.toInt();
+                if (index >= 0 && index < ageGroups.length) {
+                  final label = ageGroups[index]['label'] as String;
+                  final value = ageGroups[index]['value'] as int;
+                  return BarTooltipItem(
+                    '$label\n$value users',
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  );
+                }
+                return null;
+              },
+            ),
+            enabled: true,
+          ),
         ),
       ),
     );
@@ -742,13 +927,48 @@ class _DashboardPageState extends State<DashboardPage> {
       final item = entry.value;
       final value = item['value'] as double;
       final total = data.fold<double>(0, (sum, item) => sum + (item['value'] as double));
+      final label = item['label'] as String;
+      final color = ChartHelpers.getColor(index);
+      final isTouched = _touchedPieIndex == index;
 
       return PieChartSectionData(
         value: value,
         title: '${total > 0 ? ((value / total) * 100).toStringAsFixed(1) : 0}%',
-        color: ChartHelpers.getColor(index),
-        radius: 100,
+        color: color,
+        radius: isTouched ? 110 : 100,
         titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        badgeWidget: isTouched
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$label: ${value.toInt()}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        badgePositionPercentageOffset: 1.3,
       );
     }).toList();
 
@@ -759,6 +979,20 @@ class _DashboardPageState extends State<DashboardPage> {
           sections: sections,
           centerSpaceRadius: 60,
           sectionsSpace: 2,
+          pieTouchData: PieTouchData(
+            touchCallback: (FlTouchEvent event, pieTouchResponse) {
+              setState(() {
+                if (!event.isInterestedForInteractions ||
+                    pieTouchResponse == null ||
+                    pieTouchResponse.touchedSection == null) {
+                  _touchedPieIndex = null;
+                  return;
+                }
+                _touchedPieIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+              });
+            },
+            enabled: true,
+          ),
         ),
       ),
     );
@@ -822,9 +1056,12 @@ class _DashboardPageState extends State<DashboardPage> {
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
                   if (index >= 0 && index < data.length) {
-                    return Text(
-                      data[index]['label'] as String,
-                      style: TextStyle(fontSize: 10, color: AppColors.grey700),
+                    return Tooltip(
+                      message: data[index]['label'] as String,
+                      child: Text(
+                        data[index]['label'] as String,
+                        style: TextStyle(fontSize: 10, color: AppColors.grey700),
+                      ),
                     );
                   }
                   return const Text('');
@@ -840,6 +1077,23 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           borderData: FlBorderData(show: true),
           barGroups: barGroups,
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final index = group.x.toInt();
+                if (index >= 0 && index < data.length) {
+                  final label = data[index]['label'] as String;
+                  final value = data[index]['value'] as double;
+                  return BarTooltipItem(
+                    '$label\n${value.toInt()}',
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  );
+                }
+                return null;
+              },
+            ),
+            enabled: true,
+          ),
         ),
       ),
     );
